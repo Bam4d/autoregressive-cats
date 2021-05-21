@@ -3,13 +3,14 @@ import sys
 
 import ray
 from ray import tune
+from ray.rllib.agents.callbacks import MultiCallbacks
 from ray.rllib.agents.impala import ImpalaTrainer
 from ray.rllib.models import ModelCatalog
 from ray.tune.integration.wandb import WandbLoggerCallback
 from ray.tune.registry import register_env
 
 from griddly import gd
-from griddly.util.rllib.callbacks import VideoCallback
+from griddly.util.rllib.callbacks import VideoCallbacks, WinLoseMetricCallbacks
 from griddly.util.rllib.environment.core import RLlibEnv
 from griddly.util.rllib.torch.agents.conv_agent import SimpleConvAgent
 
@@ -78,7 +79,10 @@ if __name__ == '__main__':
 
         'train_batch_size': args.train_batch_size,
 
-        'callbacks': VideoCallback,
+        'callbacks': MultiCallbacks([
+            VideoCallbacks,
+            WinLoseMetricCallbacks,
+        ]),
 
         'model': {
             'custom_model': 'SimpleConv',
