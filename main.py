@@ -16,6 +16,7 @@ from griddly.util.rllib.torch.agents.conv_agent import SimpleConvAgent
 
 from autocats.clusters_generator import ClustersLevelGenerator
 from autocats.torch.auto_cat_trainer import AutoCATTrainer
+from autocats.wrappers.multi_action_env import MultiActionEnv
 
 import argparse
 
@@ -57,7 +58,11 @@ if __name__ == '__main__':
 
     env_name = "ray-griddly-env"
 
-    register_env(env_name, RLlibEnv)
+    def _env_creator(env_config):
+        env = RLlibEnv(env_config)
+        return MultiActionEnv(env, env_config['actions_per_step'])
+
+    register_env(env_name, _env_creator)
     ModelCatalog.register_custom_model("SimpleConv", SimpleConvAgent)
 
     wandbLoggerCallback = WandbLoggerCallback(
@@ -90,7 +95,6 @@ if __name__ == '__main__':
         },
         'env': env_name,
         'env_config': {
-            'invalid_action_masking': True,
             'generate_valid_action_trees': True,
             'level_generator': {
                 'class': ClustersLevelGenerator,
@@ -103,13 +107,16 @@ if __name__ == '__main__':
                     'm_red': 4,
                     'm_blue': 4,
                     'm_green': 4,
-                    'm_spike': 4,
+                    'm_spike': 4
                 }
             },
             'yaml_file': gdy_file,
             'global_observer_type': gd.ObserverType.SPRITE_2D,
             'max_steps': 1000,
+            'actions_per_step': 2
         },
+        'actions_per_step': 2,
+        #'autoregression_mode': 'actions',
         'entropy_coeff_schedule': [
             [0, 0.01],
             [max_training_steps, 0.0]

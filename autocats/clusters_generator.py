@@ -45,7 +45,7 @@ class ClustersLevelGenerator(LevelGenerator):
             del possible_locations[block_location_idx]
             map[block_location[0], block_location[1]] = block_char
 
-            num_boxes = np.random.choice(max_boxes)
+            num_boxes = 1 + np.random.choice(max_boxes-1)
             for k in range(num_boxes):
                 box_location_idx = np.random.choice(len(possible_locations))
                 box_location = possible_locations[box_location_idx]
@@ -63,8 +63,8 @@ class ClustersLevelGenerator(LevelGenerator):
 
         # all possible locations
         possible_locations = []
-        for w in range(1, self._width - 1):
-            for h in range(1, self._height - 1):
+        for w in range(0, self._width):
+            for h in range(0, self._height):
                 possible_locations.append([w, h])
 
         map, possible_locations = self._place_blocks_and_boxes(

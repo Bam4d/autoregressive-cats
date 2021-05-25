@@ -8,7 +8,7 @@ import numpy as np
 
 class TorchAutoCATExploration():
 
-    def __init__(self, model, dist_inputs, valid_action_trees, explore=False, invalid_action_masking=True):
+    def __init__(self, model, dist_inputs, valid_action_trees, explore=False):
         self._valid_action_trees = valid_action_trees
 
         self._num_inputs = dist_inputs.shape[0]
@@ -21,8 +21,6 @@ class TorchAutoCATExploration():
         self._num_action_parts = len(self._action_space_shape)
 
         self.model = model
-
-        self._invalid_action_masking = invalid_action_masking
 
         self.device = dist_inputs.device
 

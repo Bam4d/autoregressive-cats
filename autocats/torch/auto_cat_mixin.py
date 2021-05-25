@@ -13,7 +13,6 @@ class AutoCATMixin:
             SampleBatch.INFOS: ViewRequirement(data_col=SampleBatch.INFOS, shift=-1)
         }
 
-
     @override(Policy)
     def compute_actions_from_input_dict(
             self,
@@ -41,58 +40,67 @@ class AutoCATMixin:
             # Switch to eval mode.
             self.model.eval()
 
-            ar_mode = self.config['env_config'].get('AR_mode', None)
+            infos = input_dict[SampleBatch.INFOS] if SampleBatch.INFOS in input_dict else {}
+
+            valid_action_trees = []
+            for info in infos:
+                if isinstance(info, dict) and 'valid_action_tree' in info:
+                    valid_action_trees.append(info['valid_action_tree'])
+                else:
+                    valid_action_trees.append({})
+
+            extra_fetches = {}
+
+            step_actions_list = []
+            step_masked_logits_list = []
+            step_logp_list = []
+            step_mask_list = []
+
 
             dist_inputs, state_out = self.model(input_dict, state_batches,
                                                 seq_lens)
 
-            generate_valid_action_trees = self.config['env_config'].get('generate_valid_action_trees', False)
-            invalid_action_masking = self.config["env_config"].get("invalid_action_masking", 'none')
-            allow_nop = self.config["env_config"].get("allow_nop", False)
-
-            extra_fetches = {}
-
-            if generate_valid_action_trees:
-                infos = input_dict[SampleBatch.INFOS] if SampleBatch.INFOS in input_dict else {}
-
-                valid_action_trees = []
-                for info in infos:
-                    if isinstance(info, dict) and 'valid_action_tree' in info:
-                        valid_action_trees.append(info['valid_action_tree'])
-                    else:
-                        valid_action_trees.append({})
+            for a_count in range(self.config['actions_per_step']):
 
                 exploration = TorchAutoCATExploration(
                     self.model,
                     dist_inputs,
                     valid_action_trees,
-                    explore,
-                    invalid_action_masking
                 )
 
                 actions, masked_logits, logp, mask = exploration.get_actions_and_mask()
 
-                extra_fetches.update({
-                    'invalid_action_mask': mask
-                })
-            else:
-                action_dist = self.dist_class(dist_inputs, self.model)
+                # Remove the performed action from the trees
+                for batch_action, batch_tree in zip(actions, valid_action_trees):
+                    x = int(batch_action[0])
+                    y = int(batch_action[1])
+                    # Assuming we have x,y coordinates
+                    del batch_tree[x][y]
+                    if len(batch_tree[x]) == 0:
+                        del batch_tree[x]
 
-                # Get the exploration action from the forward results.
-                actions, logp = \
-                    self.exploration.get_exploration_action(
-                        action_distribution=action_dist,
-                        timestep=timestep,
-                        explore=explore)
+                # TODO: if autoregressive across actions, re-run the network to get new actions from
 
-                masked_logits = dist_inputs
+                step_actions_list.append(actions)
+                step_masked_logits_list.append(masked_logits)
+                step_logp_list.append(logp)
+                step_mask_list.append(mask)
 
-            input_dict[SampleBatch.ACTIONS] = actions
+            step_actions = torch.hstack(step_actions_list)
+            step_masked_logits = torch.hstack(step_masked_logits_list)
+            step_logp = torch.sum(torch.stack(step_logp_list), dim=0)
+            step_mask = torch.hstack(step_mask_list)
 
             extra_fetches.update({
-                SampleBatch.ACTION_DIST_INPUTS: masked_logits,
-                SampleBatch.ACTION_PROB: torch.exp(logp.float()),
-                SampleBatch.ACTION_LOGP: logp,
+                'invalid_action_mask': step_mask
+            })
+
+            input_dict[SampleBatch.ACTIONS] = step_actions
+
+            extra_fetches.update({
+                SampleBatch.ACTION_DIST_INPUTS: step_masked_logits,
+                SampleBatch.ACTION_PROB: torch.exp(step_logp.float()),
+                SampleBatch.ACTION_LOGP: step_logp,
             })
 
             # Update our global timestep by the batch size.
