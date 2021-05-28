@@ -17,9 +17,9 @@ Environment:
     Count: 1
   Termination:
     Win:
-      - eq: [ box_count, 0 ]
+      - lte: [ box_count, 0 ]
     Lose:
-      - eq: [ broken_boxes, 1 ]
+      - gte: [ broken_boxes, 1 ]
   Levels:
     - |
       w  w  w  w  w  w  w  w  w  w  w  w  w

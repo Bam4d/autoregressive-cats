@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import torch
-from gym.spaces import Discrete, MultiDiscrete
+from gym.spaces import Discrete, MultiDiscrete, Tuple
 from torch.distributions import Categorical
 import numpy as np
 
@@ -11,11 +11,18 @@ class TorchAutoCATExploration():
     def __init__(self, model, dist_inputs, valid_action_trees, explore=False):
         self._valid_action_trees = valid_action_trees
 
+        action_space = model.action_space
+
+        assert isinstance(action_space, Tuple), 'action space is not a tuple. ' \
+                                                'make sure to use the MultiActionEnv wrapper.'
+
+        single_action_space = action_space[0]
+
         self._num_inputs = dist_inputs.shape[0]
-        if isinstance(model.action_space, Discrete):
-            self._action_space_shape = [model.action_space.n]
-        elif isinstance(model.action_space, MultiDiscrete):
-            self._action_space_shape = model.action_space.nvec
+        if isinstance(single_action_space, Discrete):
+            self._action_space_shape = [single_action_space.n]
+        elif isinstance(single_action_space, MultiDiscrete):
+            self._action_space_shape = single_action_space.nvec
 
         self._num_action_logits = np.sum(self._action_space_shape)
         self._num_action_parts = len(self._action_space_shape)
@@ -40,7 +47,7 @@ class TorchAutoCATExploration():
                 print(subtrees)
                 raise e
 
-        masked_logits = logits + torch.log(mask)
+        masked_logits = logits + torch.maximum(torch.tensor(torch.finfo().min), torch.log(mask))
 
         dist = Categorical(logits=masked_logits)
         sampled = dist.sample()

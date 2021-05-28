@@ -1,12 +1,14 @@
 import gym
 import numpy as np
 import torch
+from gym.spaces import Tuple, Discrete, MultiDiscrete
 from ray.rllib import SampleBatch
 from ray.rllib.agents.impala import ImpalaTrainer
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.impala.vtrace_torch_policy import build_vtrace_loss
 from ray.rllib.agents.impala.vtrace_torch_policy import VTraceTorchPolicy, VTraceLoss, make_time_major
-from ray.rllib.models.torch.torch_action_dist import TorchCategorical
+from ray.rllib.models.modelv2 import restore_original_dimensions
+from ray.rllib.models.torch.torch_action_dist import TorchCategorical, TorchMultiCategorical
 from ray.rllib.policy.torch_policy import LearningRateSchedule, EntropyCoeffSchedule
 from ray.rllib.utils.torch_ops import sequence_mask
 
@@ -92,33 +94,21 @@ DEFAULT_CONFIG = with_common_config({
 
 
 def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
-    model_action_dist_out = []
-
-    action_repeats = policy.config['actions_per_step']
-
-    # In autoregressive cases
-    for a_count in range(action_repeats):
-        model_action_out, _ = model.from_batch(train_batch)
-        model_action_dist_out.append(model_action_out)
-
-    model_out = torch.hstack(model_action_dist_out)
-
-    if isinstance(policy.action_space, gym.spaces.Discrete):
-        is_multidiscrete = False
-        output_hidden_shape = [policy.action_space.n]
-    elif isinstance(policy.action_space, gym.spaces.MultiDiscrete):
-        is_multidiscrete = True
-        output_hidden_shape = policy.action_space.nvec.astype(np.int32)
-    else:
-        is_multidiscrete = False
-        output_hidden_shape = 1
+    action_space = policy.action_space
+    assert isinstance(action_space, Tuple), 'action space is not a tuple. make sure to use the MultiActionEnv wrapper.'
+    single_action_space = action_space[0]
+    action_space_parts = []
+    if isinstance(single_action_space, Discrete):
+        action_space_parts = [single_action_space.n]
+    elif isinstance(single_action_space, MultiDiscrete):
+        action_space_parts = [*single_action_space.nvec]
 
     def _make_time_major(*args, **kw):
         return make_time_major(policy, train_batch.get("seq_lens"), *args,
                                **kw)
 
     # Repeat the output_hidden_shape depending on the number of actions that have been generated
-    #output_hidden_shape = np.tile(output_hidden_shape, action_repeats)
+    # output_hidden_shape = np.tile(output_hidden_shape, action_repeats)
 
     actions = train_batch[SampleBatch.ACTIONS]
     dones = train_batch[SampleBatch.DONES]
@@ -135,31 +125,44 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
     else:
         mask = torch.ones_like(rewards)
 
-    model_out += torch.maximum(torch.tensor(torch.finfo().min), torch.log(invalid_action_mask))
-    action_dist = dist_class(model_out, model)
+    actions_per_step = policy.config["actions_per_step"]
 
-    if isinstance(output_hidden_shape, (list, tuple, np.ndarray)):
-        unpacked_behaviour_logits = torch.split(
-            behaviour_logits, list(output_hidden_shape), dim=1)
-        unpacked_outputs = torch.split(
-            model_out, list(output_hidden_shape), dim=1)
-    else:
-        unpacked_behaviour_logits = torch.chunk(
-            behaviour_logits, output_hidden_shape, dim=1)
-        unpacked_outputs = torch.chunk(model_out, output_hidden_shape, dim=1)
+    observation_features, _ = model.from_batch(train_batch)
+
+    embedded_action = None
+    logp_list = []
+    entropy_list = []
+    logits_list = []
+
+    multi_actions = torch.chunk(actions, actions_per_step, dim=1)
+    multi_invalid_action_mask = torch.chunk(invalid_action_mask, actions_per_step, dim=1)
+    for a in range(actions_per_step):
+        if a != 0:
+            embedded_action = model.embed_action(multi_actions[a])
+
+        logits = model.action_module(observation_features, embedded_action)
+        logits += torch.maximum(torch.tensor(torch.finfo().min), torch.log(multi_invalid_action_mask[a]))
+        cat = TorchMultiCategorical(logits, model, action_space_parts)
+
+        logits_list.append(logits)
+        logp_list.append(cat.logp(multi_actions[a]))
+        entropy_list.append(cat.entropy())
+
+    logp = torch.stack(logp_list, dim=1).sum(dim=1)
+    entropy = torch.stack(entropy_list, dim=1).sum(dim=1)
+    target_logits = torch.hstack(logits_list)
+
+    unpack_shape = np.tile(action_space_parts, actions_per_step)
+
+    unpacked_behaviour_logits = torch.split(behaviour_logits, list(unpack_shape), dim=1)
+    unpacked_outputs = torch.split(target_logits, list(unpack_shape), dim=1)
     values = model.value_function()
-
-    # Prepare actions for loss.
-    loss_actions = actions if is_multidiscrete else torch.unsqueeze(
-        actions, dim=1)
 
     # Inputs are reshaped from [B * T] => [T - 1, B] for V-trace calc.
     policy.loss = VTraceLoss(
-        actions=_make_time_major(loss_actions, drop_last=True),
-        actions_logp=_make_time_major(
-            action_dist.logp(actions), drop_last=True),
-        actions_entropy=_make_time_major(
-            action_dist.entropy(), drop_last=True),
+        actions=_make_time_major(actions, drop_last=True),
+        actions_logp=_make_time_major(logp, drop_last=True),
+        actions_entropy=_make_time_major(entropy, drop_last=True),
         dones=_make_time_major(dones, drop_last=True),
         behaviour_action_logp=_make_time_major(
             behaviour_action_logp, drop_last=True),
@@ -170,7 +173,7 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
         rewards=_make_time_major(rewards, drop_last=True),
         values=_make_time_major(values, drop_last=True),
         bootstrap_value=_make_time_major(values)[-1],
-        dist_class=TorchCategorical if is_multidiscrete else dist_class,
+        dist_class=TorchCategorical,
         model=model,
         valid_mask=_make_time_major(mask, drop_last=True),
         config=policy.config,

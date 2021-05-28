@@ -57,10 +57,15 @@ class AutoCATMixin:
             step_mask_list = []
 
 
-            dist_inputs, state_out = self.model(input_dict, state_batches,
+            observation_features, state_out = self.model.observation_features_module(input_dict, state_batches,
                                                 seq_lens)
 
-            for a_count in range(self.config['actions_per_step']):
+            embedded_action = None
+            for a in range(self.config['actions_per_step']):
+                if a != 0:
+                    embedded_action = self.model.embed_action(actions)
+
+                dist_inputs = self.model.action_module(observation_features, embedded_action)
 
                 exploration = TorchAutoCATExploration(
                     self.model,
@@ -79,14 +84,12 @@ class AutoCATMixin:
                     if len(batch_tree[x]) == 0:
                         del batch_tree[x]
 
-                # TODO: if autoregressive across actions, re-run the network to get new actions from
-
                 step_actions_list.append(actions)
                 step_masked_logits_list.append(masked_logits)
                 step_logp_list.append(logp)
                 step_mask_list.append(mask)
 
-            step_actions = torch.hstack(step_actions_list)
+            step_actions = tuple(step_actions_list)
             step_masked_logits = torch.hstack(step_masked_logits_list)
             step_logp = torch.sum(torch.stack(step_logp_list), dim=0)
             step_mask = torch.hstack(step_mask_list)
@@ -106,4 +109,4 @@ class AutoCATMixin:
             # Update our global timestep by the batch size.
             self.global_timestep += len(input_dict[SampleBatch.CUR_OBS])
 
-            return convert_to_non_torch_type((actions, state_out, extra_fetches))
+            return convert_to_non_torch_type((step_actions, state_out, extra_fetches))

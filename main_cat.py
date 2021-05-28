@@ -7,6 +7,8 @@ from griddly import gd
 from griddly.util.rllib.callbacks import VideoCallbacks, WinLoseMetricCallbacks
 from griddly.util.rllib.environment.core import RLlibEnv
 from griddly.util.rllib.torch.agents.impala_cnn import ImpalaCNNAgent
+from griddly.util.rllib.torch.conditional_actions.conditional_action_policy_trainer import \
+    ConditionalActionImpalaTrainer
 from ray import tune
 from ray.rllib.agents.callbacks import MultiCallbacks
 from ray.rllib.models import ModelCatalog
@@ -57,12 +59,8 @@ if __name__ == '__main__':
 
     env_name = "ray-griddly-env"
 
-    def _env_creator(env_config):
-        env = RLlibEnv(env_config)
-        return MultiActionEnv(env, env_config['actions_per_step'])
-
-    register_env(env_name, _env_creator)
-    ModelCatalog.register_custom_model("AutoCatModel", MultiActionAutoregressiveModel)
+    register_env(env_name, RLlibEnv)
+    ModelCatalog.register_custom_model("ImpalaCNN", ImpalaCNNAgent)
 
     wandbLoggerCallback = WandbLoggerCallback(
         project='autocats',
@@ -91,11 +89,8 @@ if __name__ == '__main__':
         ]),
 
         'model': {
-            'custom_model': 'AutoCatModel',
+            'custom_model': 'ImpalaCNN',
             'custom_model_config': {
-                'actions_per_step': actions_per_step,
-                'observation_features_class': ImpalaCNNAgent,
-                'observation_features_size':256,
             }
         },
         'env': env_name,
@@ -120,7 +115,7 @@ if __name__ == '__main__':
             'max_steps': 1000,
             'actions_per_step': actions_per_step
         },
-        'actions_per_step': actions_per_step,
+        #'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',
         'entropy_coeff_schedule': [
             [0, 0.01],
@@ -145,7 +140,7 @@ if __name__ == '__main__':
     }
 
     result = tune.run(
-        AutoCATTrainer,
+        ConditionalActionImpalaTrainer,
         local_dir=args.root_directory,
         config=config,
         stop=stop,
