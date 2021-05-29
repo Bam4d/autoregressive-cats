@@ -56,7 +56,6 @@ class AutoCATMixin:
             step_logp_list = []
             step_mask_list = []
 
-
             observation_features, state_out = self.model.observation_features_module(input_dict, state_batches,
                                                 seq_lens)
 

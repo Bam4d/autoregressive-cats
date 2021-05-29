@@ -1,5 +1,6 @@
 from typing import List
 
+from griddly.util.rllib.torch.agents.common import layer_init
 from griddly.util.rllib.torch.agents.impala_cnn import ImpalaCNNAgent
 from gym.spaces import MultiDiscrete, Discrete, Tuple
 from ray.rllib import SampleBatch
@@ -17,10 +18,9 @@ class MultiActionAutoregressiveModel(TorchModelV2, nn.Module):
 
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
 
-        self.actions_per_step = model_config.get('actions_per_step', 1)
-        self.action_embedding_size = model_config.get('action_embedding_size', 32)
-        self._observation_features_module_class = model_config.get('obs_model_class', ImpalaCNNAgent)
-        self._observation_features_size = model_config.get('observation_features_size', 256)
+        custom_model_config = model_config['custom_model_config']
+        self._observation_features_module_class = custom_model_config.get('observation_features_class', ImpalaCNNAgent)
+        self._observation_features_size = custom_model_config.get('observation_features_size', 256)
 
         assert isinstance(action_space, Tuple), 'action space is not a tuple. make sure to use the MultiActionEnv wrapper.'
         single_action_space = action_space[0]
@@ -60,12 +60,13 @@ class MultiActionAutoregressiveModel(TorchModelV2, nn.Module):
 
         # Actor head
         self._action_module = nn.Sequential(
-            nn.Linear(self._observation_features_size*2, 512),
+            nn.Linear(self._observation_features_size*2, 256),
             nn.ReLU(),
-            nn.Linear(512, 256),
+            nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(256, self._num_action_logits)
+            layer_init(nn.Linear(128, self._num_action_logits), std=0.01)
         )
+
 
     def embed_action(self, action):
         # One-hot encode the action selection

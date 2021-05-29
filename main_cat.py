@@ -6,6 +6,7 @@ import ray
 from griddly import gd
 from griddly.util.rllib.callbacks import VideoCallbacks, WinLoseMetricCallbacks
 from griddly.util.rllib.environment.core import RLlibEnv
+from griddly.util.rllib.torch.agents.conv_agent import SimpleConvAgent
 from griddly.util.rllib.torch.agents.impala_cnn import ImpalaCNNAgent
 from griddly.util.rllib.torch.conditional_actions.conditional_action_policy_trainer import \
     ConditionalActionImpalaTrainer
@@ -60,7 +61,7 @@ if __name__ == '__main__':
     env_name = "ray-griddly-env"
 
     register_env(env_name, RLlibEnv)
-    ModelCatalog.register_custom_model("ImpalaCNN", ImpalaCNNAgent)
+    ModelCatalog.register_custom_model("ImpalaCNN", SimpleConvAgent)
 
     wandbLoggerCallback = WandbLoggerCallback(
         project='autocats',
@@ -113,7 +114,7 @@ if __name__ == '__main__':
             'yaml_file': gdy_file,
             'global_observer_type': gd.ObserverType.SPRITE_2D,
             'max_steps': 1000,
-            'actions_per_step': actions_per_step
+            #'actions_per_step': actions_per_step
         },
         #'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',

@@ -93,9 +93,8 @@ if __name__ == '__main__':
         'model': {
             'custom_model': 'AutoCatModel',
             'custom_model_config': {
-                'actions_per_step': actions_per_step,
                 'observation_features_class': ImpalaCNNAgent,
-                'observation_features_size':256,
+                'observation_features_size': 256,
             }
         },
         'env': env_name,
@@ -122,14 +121,16 @@ if __name__ == '__main__':
         },
         'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',
-        'entropy_coeff_schedule': [
-            [0, 0.01],
-            [max_training_steps, 0.0]
-        ],
-        'lr_schedule': [
-            [0, args.lr],
-            [max_training_steps, 0.0]
-        ],
+        'lr': tune.grid_search([0.001,0.0005,0.0001]),
+        'entropy_coeff': tune.grid_search([0.01,0.001,0.0001])
+        # 'entropy_coeff_schedule': [
+        #     [0, args.entropy_coeff],
+        #     [max_training_steps, 0.0]
+        # ],
+        # 'lr_schedule': [
+        #     [0, args.lr],
+        #     [max_training_steps, 0.0]
+        # ],
 
     }
 
