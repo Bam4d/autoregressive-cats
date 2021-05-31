@@ -83,7 +83,7 @@ if __name__ == '__main__':
         'num_gpus_per_worker': float(args.num_gpus_per_worker),
         'num_cpus_per_worker': args.num_cpus_per_worker,
 
-        'train_batch_size': args.train_batch_size,
+        'train_batch_size': tune.grid_search([512, 1024, 2048]),
 
         'callbacks': MultiCallbacks([
             VideoCallbacks,
@@ -94,7 +94,7 @@ if __name__ == '__main__':
             'custom_model': 'AutoCatModel',
             'custom_model_config': {
                 'observation_features_class': ImpalaCNNAgent,
-                'observation_features_size': 256,
+                'observation_features_size': 512,
             }
         },
         'env': env_name,
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         },
         'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',
-        'lr': tune.grid_search([0.001,0.0005,0.0001]),
+        'lr': tune.grid_search([0.00005]),
         'entropy_coeff': tune.grid_search([0.01,0.001,0.0001])
         # 'entropy_coeff_schedule': [
         #     [0, args.entropy_coeff],

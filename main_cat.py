@@ -7,7 +7,6 @@ from griddly import gd
 from griddly.util.rllib.callbacks import VideoCallbacks, WinLoseMetricCallbacks
 from griddly.util.rllib.environment.core import RLlibEnv
 from griddly.util.rllib.torch.agents.conv_agent import SimpleConvAgent
-from griddly.util.rllib.torch.agents.impala_cnn import ImpalaCNNAgent
 from griddly.util.rllib.torch.conditional_actions.conditional_action_policy_trainer import \
     ConditionalActionImpalaTrainer
 from ray import tune
@@ -17,9 +16,6 @@ from ray.tune.integration.wandb import WandbLoggerCallback
 from ray.tune.registry import register_env
 
 from autocats.clusters_generator import ClustersLevelGenerator
-from autocats.torch.auto_cat_trainer import AutoCATTrainer
-from autocats.torch.multi_action_model import MultiActionAutoregressiveModel
-from autocats.wrappers.multi_action_env import MultiActionEnv
 
 parser = argparse.ArgumentParser(description='Run experiments')
 

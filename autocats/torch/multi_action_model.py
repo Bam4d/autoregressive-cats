@@ -52,10 +52,9 @@ class MultiActionAutoregressiveModel(TorchModelV2, nn.Module):
 
         # Action embedding network
         self._action_embedding_module = nn.Sequential(
-            nn.Linear(self._num_action_logits, 256),
+            nn.Linear(self._num_action_logits, 512),
             nn.ReLU(),
-            nn.Linear(256, self._observation_features_size),
-            nn.ReLU(),
+            nn.Linear(512, self._observation_features_size),
         )
 
         # Actor head
