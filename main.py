@@ -6,6 +6,7 @@ import ray
 from griddly import gd
 from griddly.util.rllib.callbacks import VideoCallbacks, WinLoseMetricCallbacks
 from griddly.util.rllib.environment.core import RLlibEnv
+from griddly.util.rllib.torch.agents.conv_agent import SimpleConvAgent
 from griddly.util.rllib.torch.agents.impala_cnn import ImpalaCNNAgent
 from ray import tune
 from ray.rllib.agents.callbacks import MultiCallbacks
@@ -42,6 +43,7 @@ parser.add_argument('--video-frequency', type=int, default=1000000, help='Freque
 parser.add_argument('--seed', type=int, default=69420, help='seed for experiments')
 
 parser.add_argument('--lr', type=float, default=0.0005, help='learning rate')
+parser.add_argument('--entropy-coeff', type=float, default=0.01, help='entropy coefficient')
 
 if __name__ == '__main__':
 
@@ -83,7 +85,7 @@ if __name__ == '__main__':
         'num_gpus_per_worker': float(args.num_gpus_per_worker),
         'num_cpus_per_worker': args.num_cpus_per_worker,
 
-        'train_batch_size': tune.grid_search([512, 1024, 2048]),
+        'train_batch_size': args.train_batch_size,
 
         'callbacks': MultiCallbacks([
             VideoCallbacks,
@@ -93,7 +95,7 @@ if __name__ == '__main__':
         'model': {
             'custom_model': 'AutoCatModel',
             'custom_model_config': {
-                'observation_features_class': ImpalaCNNAgent,
+                'observation_features_class': SimpleConvAgent,
                 'observation_features_size': 512,
             }
         },
@@ -121,8 +123,8 @@ if __name__ == '__main__':
         },
         'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',
-        'lr': tune.grid_search([0.00005]),
-        'entropy_coeff': tune.grid_search([0.01,0.001,0.0001])
+        'lr': args.lr,
+        'entropy_coeff': args.entropy_coeff,
         # 'entropy_coeff_schedule': [
         #     [0, args.entropy_coeff],
         #     [max_training_steps, 0.0]
