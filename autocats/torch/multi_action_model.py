@@ -29,13 +29,12 @@ class SimpleConvEncoderModule(nn.Module):
 
         self._critic_head = nn.Sequential(
             Flatten(),
-            layer_init(nn.Linear(self._num_outputs, 512)),
+            layer_init(nn.Linear(self._num_outputs, 256)),
             nn.ReLU(),
-            layer_init(nn.Linear(512, 1), std=0.01)
+            layer_init(nn.Linear(256, 1), std=0.01)
         )
 
     def forward(self, input):
-        # Residual Encoder
         encoded_obs = self.network(input)
 
         value = self._critic_head(encoded_obs)
@@ -83,6 +82,7 @@ class ActionModule(nn.Module):
             layer_init(nn.Conv2d(num_channels, num_channels, 3, padding=1)),
             nn.ReLU(),
             layer_init(nn.Conv2d(num_channels, num_channels, 3, padding=1)),
+            nn.ReLU(),
         )
 
         self._action_head = nn.Sequential(
@@ -94,7 +94,8 @@ class ActionModule(nn.Module):
 
     def forward(self, observation_embedding, action_embedding):
         input = observation_embedding + action_embedding
-        return self._action_head(input)
+        state = self._network(input) + input
+        return self._action_head(state)
 
 
 class MultiActionAutoregressiveModel(TorchModelV2, nn.Module):

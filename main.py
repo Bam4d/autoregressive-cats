@@ -123,16 +123,16 @@ if __name__ == '__main__':
         },
         'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',
-        # 'lr': args.lr,
-        # 'entropy_coeff': args.entropy_coeff,
-        'entropy_coeff_schedule': [
-            [0, args.entropy_coeff],
-            [max_training_steps, 0.0]
-        ],
-        'lr_schedule': [
-            [0, args.lr],
-            [max_training_steps, 0.0]
-        ],
+        'lr': args.lr,
+        'entropy_coeff': args.entropy_coeff,
+        # 'entropy_coeff_schedule': [
+        #     [0, args.entropy_coeff],
+        #     [max_training_steps, 0.0]
+        # ],
+        # 'lr_schedule': [
+        #     [0, args.lr],
+        #     [max_training_steps, 0.0]
+        # ],
 
     }
 
