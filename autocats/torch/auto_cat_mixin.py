@@ -62,7 +62,7 @@ class AutoCATMixin:
             embedded_action = None
             for a in range(self.config['actions_per_step']):
                 if a != 0:
-                    embedded_action = self.model.embed_action(actions)
+                    embedded_action = self.model.embed_action_module(actions)
 
                 dist_inputs = self.model.action_module(observation_features, embedded_action)
 

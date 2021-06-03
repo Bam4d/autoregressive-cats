@@ -138,7 +138,7 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
     multi_invalid_action_mask = torch.chunk(invalid_action_mask, actions_per_step, dim=1)
     for a in range(actions_per_step):
         if a != 0:
-            embedded_action = model.embed_action(multi_actions[a])
+            embedded_action = model.embed_action_module(multi_actions[a])
 
         logits = model.action_module(observation_features, embedded_action)
         logits += torch.maximum(torch.tensor(torch.finfo().min), torch.log(multi_invalid_action_mask[a]))

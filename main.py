@@ -6,7 +6,6 @@ import ray
 from griddly import gd
 from griddly.util.rllib.callbacks import VideoCallbacks, WinLoseMetricCallbacks
 from griddly.util.rllib.environment.core import RLlibEnv
-from griddly.util.rllib.torch.agents.conv_agent import SimpleConvAgent
 from griddly.util.rllib.torch.agents.impala_cnn import ImpalaCNNAgent
 from ray import tune
 from ray.rllib.agents.callbacks import MultiCallbacks
@@ -16,7 +15,7 @@ from ray.tune.registry import register_env
 
 from autocats.clusters_generator import ClustersLevelGenerator
 from autocats.torch.auto_cat_trainer import AutoCATTrainer
-from autocats.torch.multi_action_model import MultiActionAutoregressiveModel
+from autocats.torch.models.ma_combined import MACombined
 from autocats.wrappers.multi_action_env import MultiActionEnv
 
 parser = argparse.ArgumentParser(description='Run experiments')
@@ -64,7 +63,7 @@ if __name__ == '__main__':
         return MultiActionEnv(env, env_config['actions_per_step'])
 
     register_env(env_name, _env_creator)
-    ModelCatalog.register_custom_model("AutoCatModel", MultiActionAutoregressiveModel)
+    ModelCatalog.register_custom_model("AutoCatModel", MACombined)
 
     wandbLoggerCallback = WandbLoggerCallback(
         project='autocats',
@@ -95,7 +94,7 @@ if __name__ == '__main__':
         'model': {
             'custom_model': 'AutoCatModel',
             'custom_model_config': {
-                'observation_features_class': SimpleConvAgent,
+                'observation_features_class': ImpalaCNNAgent,
                 'observation_features_size': 512,
             }
         },
