@@ -16,6 +16,7 @@ from ray.tune.registry import register_env
 from autocats.clusters_generator import ClustersLevelGenerator
 from autocats.torch.auto_cat_trainer import AutoCATTrainer
 from autocats.torch.models.ma_combined import MACombined
+from autocats.torch.models.ma_separate import MASeparate
 from autocats.wrappers.multi_action_env import MultiActionEnv
 
 parser = argparse.ArgumentParser(description='Run experiments')
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         return MultiActionEnv(env, env_config['actions_per_step'])
 
     register_env(env_name, _env_creator)
-    ModelCatalog.register_custom_model("AutoCatModel", MACombined)
+    ModelCatalog.register_custom_model("AutoCatModel", MASeparate)
 
     wandbLoggerCallback = WandbLoggerCallback(
         project='autocats',
@@ -95,7 +96,7 @@ if __name__ == '__main__':
             'custom_model': 'AutoCatModel',
             'custom_model_config': {
                 'observation_features_class': ImpalaCNNAgent,
-                'observation_features_size': 512,
+                'observation_features_size': 256,
             }
         },
         'env': env_name,
@@ -122,8 +123,8 @@ if __name__ == '__main__':
         },
         'actions_per_step': actions_per_step,
         #'autoregression_mode': 'actions',
-        'lr': args.lr,
-        'entropy_coeff': args.entropy_coeff,
+        'lr': 0.0005,
+        'entropy_coeff': 0.01,
         # 'entropy_coeff_schedule': [
         #     [0, args.entropy_coeff],
         #     [max_training_steps, 0.0]

@@ -7,6 +7,7 @@ from ray.rllib.utils.torch_ops import convert_to_non_torch_type
 
 from autocats.torch.torch_auto_cat_exploration import TorchAutoCATExploration
 
+
 class AutoCATMixin:
     def __init__(self):
         self.view_requirements = {
@@ -18,7 +19,7 @@ class AutoCATMixin:
             self,
             input_dict,
             explore=None,
-            timestep = None,
+            timestep=None,
             **kwargs):
 
         explore = explore if explore is not None else self.config["explore"]
@@ -57,14 +58,15 @@ class AutoCATMixin:
             step_mask_list = []
 
             observation_features, state_out = self.model.observation_features_module(input_dict, state_batches,
-                                                seq_lens)
+                                                                                     seq_lens)
+            action_features, _ = self.model.action_features_module(input_dict, state_batches, seq_lens)
 
             embedded_action = None
             for a in range(self.config['actions_per_step']):
-                if a != 0:
-                    embedded_action = self.model.embed_action_module(actions)
+                # if a != 0:
+                #     embedded_action = self.model.embed_action_module(actions)
 
-                dist_inputs = self.model.action_module(observation_features, embedded_action)
+                dist_inputs = self.model.action_module(action_features, embedded_action)
 
                 exploration = TorchAutoCATExploration(
                     self.model,
@@ -90,7 +92,7 @@ class AutoCATMixin:
 
             step_actions = tuple(step_actions_list)
             step_masked_logits = torch.hstack(step_masked_logits_list)
-            step_logp = torch.sum(torch.stack(step_logp_list), dim=0)
+            step_logp = torch.sum(torch.stack(step_logp_list,dim=1), dim=1)
             step_mask = torch.hstack(step_mask_list)
 
             extra_fetches.update({

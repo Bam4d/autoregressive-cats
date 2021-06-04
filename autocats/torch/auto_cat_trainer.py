@@ -127,7 +127,16 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
 
     actions_per_step = policy.config["actions_per_step"]
 
-    observation_features, _ = model.from_batch(train_batch)
+    states = []
+    i = 0
+    while "state_in_{}".format(i) in train_batch:
+        states.append(train_batch["state_in_{}".format(i)])
+        i += 1
+
+    seq_lens = train_batch["seq_lens"] if "seq_lens" in train_batch else []
+
+    model.observation_features_module(train_batch, states, seq_lens)
+    action_features, _ = model.action_features_module(train_batch, states, seq_lens)
 
     embedded_action = None
     logp_list = []
@@ -137,10 +146,10 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
     multi_actions = torch.chunk(actions, actions_per_step, dim=1)
     multi_invalid_action_mask = torch.chunk(invalid_action_mask, actions_per_step, dim=1)
     for a in range(actions_per_step):
-        if a != 0:
-            embedded_action = model.embed_action_module(multi_actions[a])
+        # if a != 0:
+        #     embedded_action = model.embed_action_module(multi_actions[a])
 
-        logits = model.action_module(observation_features, embedded_action)
+        logits = model.action_module(action_features, embedded_action)
         logits += torch.maximum(torch.tensor(torch.finfo().min), torch.log(multi_invalid_action_mask[a]))
         cat = TorchMultiCategorical(logits, model, action_space_parts)
 
@@ -156,6 +165,7 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
 
     unpacked_behaviour_logits = torch.split(behaviour_logits, list(unpack_shape), dim=1)
     unpacked_outputs = torch.split(target_logits, list(unpack_shape), dim=1)
+
     values = model.value_function()
 
     # Inputs are reshaped from [B * T] => [T - 1, B] for V-trace calc.

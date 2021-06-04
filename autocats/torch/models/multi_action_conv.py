@@ -112,18 +112,21 @@ class MAConvs(MultiActionAutoregressiveAgent):
         # Actor head
         self._action_module = ActionModule(obs_space, num_channels, self._num_action_logits)
 
-    def embed_action_module(self, action):
+    def embed_action_module(self, action, **kwargs):
         # One-hot encode the action selection
         one_hot_actions = self._encode_one_hot_actions(action)
         return self._action_embedding_module(one_hot_actions)
 
-    def observation_features_module(self, input_dict, state, seq_lens):
-        obs_transformed = input_dict['obs'].permute(0, 3, 1, 2)
-        observation_features = self._observation_features_module(obs_transformed)
-        self._value = self._observation_features_module.value_function()
-        return observation_features, state
+    def action_features_module(self, input_dict, states, seq_lens, **kwargs):
+        return self._observation_features, self._state_out
 
-    def action_module(self, observation_features, embedded_action=None):
+    def observation_features_module(self, input_dict, state, seq_lens, **kwargs):
+        obs_transformed = input_dict['obs'].permute(0, 3, 1, 2)
+        self._observation_features = self._observation_features_module(obs_transformed)
+        self._value = self._observation_features_module.value_function()
+        return self._observation_features, state
+
+    def action_module(self, observation_features, embedded_action,  **kwargs):
         if embedded_action is None:
             batch_size = observation_features.shape[0]
             zero_actions = torch.zeros([batch_size, len(self._action_space_parts)]).to(observation_features.device)
