@@ -126,7 +126,7 @@ class MAConvs(MultiActionAutoregressiveAgent):
         self._value = self._observation_features_module.value_function()
         return self._observation_features, state
 
-    def action_module(self, observation_features, embedded_action,  **kwargs):
+    def action_module(self, observation_features, embedded_action=None, **kwargs):
         if embedded_action is None:
             batch_size = observation_features.shape[0]
             zero_actions = torch.zeros([batch_size, len(self._action_space_parts)]).to(observation_features.device)

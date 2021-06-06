@@ -52,6 +52,9 @@ class AutoCATMixin:
 
             extra_fetches = {}
 
+            actions_per_step = self.config['actions_per_step']
+            autoregressive_actions = self.config['autoregressive_actions']
+
             step_actions_list = []
             step_masked_logits_list = []
             step_logp_list = []
@@ -62,9 +65,15 @@ class AutoCATMixin:
             action_features, _ = self.model.action_features_module(input_dict, state_batches, seq_lens)
 
             embedded_action = None
-            for a in range(self.config['actions_per_step']):
-                # if a != 0:
-                #     embedded_action = self.model.embed_action_module(actions)
+            for a in range(actions_per_step):
+                if autoregressive_actions:
+                    if a == 0:
+                        batch_size = action_features.shape[0]
+                        previous_action = torch.zeros([batch_size, len(self.model.action_space_parts)]).to(action_features.device)
+                    else:
+                        previous_action = actions
+
+                    embedded_action = self.model.embed_action_module(previous_action)
 
                 dist_inputs = self.model.action_module(action_features, embedded_action)
 

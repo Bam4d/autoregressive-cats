@@ -89,19 +89,12 @@ DEFAULT_CONFIG = with_common_config({
 
     # AutoCATParams
     "actions_per_step": 1,
-    "autoregression_mode": None,
+    "autoregressive_actions": False,
 })
 
 
 def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
-    action_space = policy.action_space
-    assert isinstance(action_space, Tuple), 'action space is not a tuple. make sure to use the MultiActionEnv wrapper.'
-    single_action_space = action_space[0]
-    action_space_parts = []
-    if isinstance(single_action_space, Discrete):
-        action_space_parts = [single_action_space.n]
-    elif isinstance(single_action_space, MultiDiscrete):
-        action_space_parts = [*single_action_space.nvec]
+    action_space_parts = model.action_space_parts
 
     def _make_time_major(*args, **kw):
         return make_time_major(policy, train_batch.get("seq_lens"), *args,
@@ -117,6 +110,7 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
     behaviour_logits = train_batch[SampleBatch.ACTION_DIST_INPUTS]
 
     invalid_action_mask = train_batch['invalid_action_mask']
+    autoregressive_actions = policy.config['autoregressive_actions']
 
     if 'seq_lens' in train_batch:
         max_seq_len = policy.config['rollout_fragment_length']
@@ -138,6 +132,7 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
     model.observation_features_module(train_batch, states, seq_lens)
     action_features, _ = model.action_features_module(train_batch, states, seq_lens)
 
+    previous_action = None
     embedded_action = None
     logp_list = []
     entropy_list = []
@@ -146,8 +141,14 @@ def build_CAT_vtrace_loss(policy, model, dist_class, train_batch):
     multi_actions = torch.chunk(actions, actions_per_step, dim=1)
     multi_invalid_action_mask = torch.chunk(invalid_action_mask, actions_per_step, dim=1)
     for a in range(actions_per_step):
-        # if a != 0:
-        #     embedded_action = model.embed_action_module(multi_actions[a])
+        if autoregressive_actions:
+            if a == 0:
+                batch_size = action_features.shape[0]
+                previous_action = torch.zeros([batch_size, len(action_space_parts)]).to(action_features.device)
+            else:
+                previous_action = multi_actions[a-1]
+
+            embedded_action = model.embed_action_module(previous_action)
 
         logits = model.action_module(action_features, embedded_action)
         logits += torch.maximum(torch.tensor(torch.finfo().min), torch.log(multi_invalid_action_mask[a]))

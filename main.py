@@ -122,17 +122,17 @@ if __name__ == '__main__':
             'actions_per_step': actions_per_step
         },
         'actions_per_step': actions_per_step,
-        #'autoregression_mode': 'actions',
-        'lr': 0.0005,
-        'entropy_coeff': 0.01,
-        # 'entropy_coeff_schedule': [
-        #     [0, args.entropy_coeff],
-        #     [max_training_steps, 0.0]
-        # ],
-        # 'lr_schedule': [
-        #     [0, args.lr],
-        #     [max_training_steps, 0.0]
-        # ],
+        'autoregressive_actions': True,
+        # 'lr': 0.001,
+        # 'entropy_coeff': 0.01,
+        'entropy_coeff_schedule': [
+            [0, args.entropy_coeff],
+            [max_training_steps, 0.0]
+        ],
+        'lr_schedule': [
+            [0, args.lr],
+            [max_training_steps, 0.0]
+        ],
 
     }
 

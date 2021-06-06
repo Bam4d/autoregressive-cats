@@ -14,14 +14,14 @@ class MultiActionAutoregressiveAgent(TorchModelV2, nn.Module):
                           Tuple), 'action space is not a tuple. make sure to use the MultiActionEnv wrapper.'
         single_action_space = action_space[0]
 
-        self._action_space_parts = None
+        self.action_space_parts = None
 
         if isinstance(single_action_space, Discrete):
             self._num_action_logits = single_action_space.n
-            self._action_space_parts = [self._num_action_logits]
+            self.action_space_parts = [self._num_action_logits]
         elif isinstance(single_action_space, MultiDiscrete):
             self._num_action_logits = np.sum(single_action_space.nvec)
-            self._action_space_parts = [*single_action_space.nvec]
+            self.action_space_parts = [*single_action_space.nvec]
         else:
             raise RuntimeError('Can only be used with discrete and multi-discrete action spaces')
 
@@ -32,7 +32,7 @@ class MultiActionAutoregressiveAgent(TorchModelV2, nn.Module):
         batch_size = action.shape[0]
         one_hot_actions = torch.zeros([batch_size, self._num_action_logits]).to(action.device)
         offset = 0
-        for i, num_logits in enumerate(self._action_space_parts):
+        for i, num_logits in enumerate(self.action_space_parts):
             oh_idxs = (offset + action[:, i]).type(torch.LongTensor)
             one_hot_actions[torch.arange(batch_size), oh_idxs] = 1
             offset += num_logits

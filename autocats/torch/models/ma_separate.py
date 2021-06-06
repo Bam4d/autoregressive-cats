@@ -40,9 +40,11 @@ class MASeparate(MultiActionAutoregressiveAgent):
         self._action_logits_network = nn.Sequential(
             layer_init(nn.Linear(self._observation_features_size, self._observation_features_size), std=0.1),
             nn.ReLU(),
-            layer_init(nn.Linear(self._observation_features_size, self._observation_features_size), std=0.1),
-            nn.ReLU(),
             layer_init(nn.Linear(self._observation_features_size, self._num_action_logits), std=0.01)
+        )
+
+        self._action_conditioner = nn.Sequential(
+            layer_init(nn.Linear(self._observation_features_size*2, self._observation_features_size), std=0.1),
         )
 
     def action_features_module(self, input_dict, states, seq_lens, **kwargs):
@@ -54,12 +56,13 @@ class MASeparate(MultiActionAutoregressiveAgent):
         return observation_features, state_out
 
     def action_module(self, action_features, embedded_action, **kwargs):
-        # if embedded_action is None:
-        #     batch_size = action_features.shape[0]
-        #     zero_actions = torch.zeros([batch_size, len(self._action_space_parts)]).to(action_features.device)
-        #     embedded_action = self.embed_action_module(zero_actions)
-        # action_network_inputs = torch.cat([action_features, embedded_action], dim=1)
-        return self._action_logits_network(action_features)
+        if embedded_action is not None:
+            features_and_embedding = torch.cat([action_features, embedded_action], dim=1)
+            action_network_inputs = self._action_conditioner(features_and_embedding)
+        else:
+            action_network_inputs = action_features
+
+        return self._action_logits_network(action_network_inputs)
 
     def embed_action_module(self, action, **kwargs):
         one_hot_actions = self._encode_one_hot_actions(action)
